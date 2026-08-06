@@ -933,8 +933,9 @@
 </div>
 
 <script>
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzRWidhPsLnAx-fordLb9ZmmtJcdjgJqnAobe0fBaqAgYes__qFe8_3vWTSFxmhRRUF/exec";
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbymRKf0ahqQkVRZtOL2_4pYC8WzIawNVtTMwa7-GpIFHih0Xx6eCiNPFIOWYAt9U8aw/exec";
   const API_KEY = "2026Impulso$";
+  const MAX_PDF_BASE64 = 8500000;
 
   let autoSendInProgress = false;
   let autoSendDone = false;
@@ -963,6 +964,42 @@
 
   function validateEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+  }
+
+  async function fetchWithTimeout(url, options = {}, timeout = 120000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function postResultToScript(payload) {
+    const response = await fetchWithTimeout(WEB_APP_URL, {
+      method: "POST",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`Servidor indisponível (HTTP ${response.status}).`);
+    }
+
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      throw new Error("O servidor retornou uma resposta inválida.");
+    }
+
+    if (result.ok !== true) {
+      throw new Error(result.message || "O resultado não foi confirmado pelo servidor.");
+    }
+    return result;
   }
 
   function maskWhatsApp(input) {
@@ -1705,6 +1742,10 @@
       const { doc, pdfFileName } = await generatePdfDocAndFileName(sorted);
       const base64Pdf = doc.output("datauristring").split(",")[1];
 
+      if (base64Pdf.length > MAX_PDF_BASE64) {
+        throw new Error("O relatório ficou muito grande para envio. Recarregue a página e tente novamente.");
+      }
+
       const payload = {
         apiKey: API_KEY,
         testId: "via_forcas",
@@ -1729,12 +1770,8 @@
         sendEmail: true
       };
 
-      await fetch(WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
+      const serverResult = await postResultToScript(payload);
+      console.log("Resultado confirmado pelo Apps Script:", serverResult);
 
       autoSendDone = true;
       document.getElementById("auto-send-status").textContent = "";
