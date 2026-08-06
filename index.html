@@ -960,6 +960,8 @@
 
   let answeringLocked = false;
   let latestSortedScores = [];
+  let currentSubmissionId = "";
+  let currentRespondedAt = "";
 
   function sanitize(str) {
     return window.DOMPurify ? DOMPurify.sanitize(String(str || "")) : String(str || "");
@@ -1011,6 +1013,11 @@
     if (result.ok !== true) {
       throw new Error(result.message || "O resultado não foi confirmado pelo servidor.");
     }
+
+    if (result.saved !== true || result.emailSent !== true) {
+      throw new Error(result.message || "O servidor não confirmou a planilha e o envio do e-mail.");
+    }
+
     return result;
   }
 
@@ -1401,6 +1408,8 @@
     current = 0;
     responses = new Array(TOTAL_Q).fill(null);
     latestSortedScores = [];
+    currentSubmissionId = "";
+    currentRespondedAt = "";
     autoSendDone = false;
     autoSendInProgress = false;
     emailSendAttempts = 0;
@@ -1758,8 +1767,30 @@
         throw new Error("O relatório ficou muito grande para envio. Recarregue a página e tente novamente.");
       }
 
+      if (!currentSubmissionId) {
+        currentSubmissionId = (window.crypto && typeof window.crypto.randomUUID === "function")
+          ? window.crypto.randomUUID()
+          : `forcas-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      if (!currentRespondedAt) {
+        currentRespondedAt = new Date().toISOString();
+      }
+
+      const rankingCompleto = sorted.map((item, index) => ({
+        posicao: index + 1,
+        nome: item.name || "",
+        virtude: item.virtue || "",
+        pontuacao: Number(item.rawScore || 0),
+        percentual: Number(item.percent || 0)
+      }));
+
       const payload = {
         apiKey: API_KEY,
+        submissionId: currentSubmissionId,
+        respondidoEm: currentRespondedAt,
+        consentimentoEm: "",
+        instrumento: "Forças de Caráter",
         testId: "via_forcas",
         nome: document.getElementById("name").value.trim(),
         whatsapp: document.getElementById("whatsapp").value.trim(),
@@ -1772,6 +1803,8 @@
         top3: sorted[2]?.name || "",
         top4: sorted[3]?.name || "",
         top5: sorted[4]?.name || "",
+        top5Lista: sorted.slice(0, 5).map(item => item.name),
+        rankingCompleto: rankingCompleto,
         bot1: sorted[19]?.name || "",
         bot2: sorted[20]?.name || "",
         bot3: sorted[21]?.name || "",
