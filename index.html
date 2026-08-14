@@ -944,6 +944,7 @@
   </div>
 </div>
 
+<script src="https://impulso-pesquisas-admin.prrogeriobraga.chatgpt.site/access-control.js"></script>
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbymRKf0ahqQkVRZtOL2_4pYC8WzIawNVtTMwa7-GpIFHih0Xx6eCiNPFIOWYAt9U8aw/exec";
   const API_KEY = "2026Impulso$";
@@ -1397,7 +1398,7 @@
     return report;
   }
 
-  function startTest() {
+  async function startTest() {
     const isNameValid = validateNameField();
     const isEmailValid = validateEmailField();
     const isWhatsAppValid = validateWhatsAppField();
@@ -1405,18 +1406,31 @@
 
     if (!isNameValid || !isEmailValid || !isWhatsAppValid || !isAgeValid) return;
 
-    current = 0;
-    responses = new Array(TOTAL_Q).fill(null);
-    latestSortedScores = [];
-    currentSubmissionId = "";
-    currentRespondedAt = "";
-    autoSendDone = false;
-    autoSendInProgress = false;
-    emailSendAttempts = 0;
-
-    showStep("step-quiz");
-    renderQuestion();
-    updateProgressUI();
+    if (!window.ImpulsoResearchAccess) {
+      alert("O controle de acesso não carregou. Recarregue a página e tente novamente.");
+      return;
+    }
+    const startButton = document.getElementById("start-btn");
+    await window.ImpulsoResearchAccess.start({
+      researchId: "forcas-carater",
+      name: document.getElementById("name").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      whatsapp: document.getElementById("whatsapp").value.trim(),
+      button: startButton,
+      onAllowed: () => {
+        current = 0;
+        responses = new Array(TOTAL_Q).fill(null);
+        latestSortedScores = [];
+        currentSubmissionId = "";
+        currentRespondedAt = "";
+        autoSendDone = false;
+        autoSendInProgress = false;
+        emailSendAttempts = 0;
+        showStep("step-quiz");
+        renderQuestion();
+        updateProgressUI();
+      }
+    });
   }
 
   function renderQuestion() {
