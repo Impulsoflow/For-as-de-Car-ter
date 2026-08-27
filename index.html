@@ -992,34 +992,18 @@
   }
 
   async function postResultToScript(payload) {
-    const response = await fetchWithTimeout(WEB_APP_URL, {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
-    });
-
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`Servidor indisponível (HTTP ${response.status}).`);
-    }
-
-    let result;
     try {
-      result = JSON.parse(text);
-    } catch {
-      throw new Error("O servidor retornou uma resposta inválida.");
+      await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return { ok: true };
+    } catch (error) {
+      console.error("Erro ao enviar para Google Apps Script:", error);
+      throw error;
     }
-
-    if (result.ok !== true) {
-      throw new Error(result.message || "O resultado não foi confirmado pelo servidor.");
-    }
-
-    if (result.saved !== true || result.emailSent !== true) {
-      throw new Error(result.message || "O servidor não confirmou a planilha e o envio do e-mail.");
-    }
-
-    return result;
   }
 
   function maskWhatsApp(input) {
